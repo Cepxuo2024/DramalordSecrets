@@ -1,8 +1,9 @@
-using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Newtonsoft.Json;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.LogEntries;
@@ -40,6 +41,7 @@ public static class PersistentHistoryTracker
 {
     private static Dictionary<string, HeroHistoryData> _data = new Dictionary<string, HeroHistoryData>();
     private static bool _isLoaded = false;
+    private static readonly object _fileLock = new object();
 
     public static string FormatDate(double days)
     {
@@ -85,40 +87,120 @@ public static class PersistentHistoryTracker
 
     public static void Load()
     {
-        try
+        lock (_fileLock)
         {
-            string path = GetDataFilePath();
-            if (File.Exists(path))
+            try
             {
-                string json = File.ReadAllText(path);
-                var loaded = JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(json);
+                string path = GetDataFilePath();
+                string bakPath = path + ".bak";
+
+                Dictionary<string, HeroHistoryData>? loaded = null;
+
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        string json = File.ReadAllText(path, Encoding.UTF8);
+                        if (!string.IsNullOrWhiteSpace(json))
+                        {
+                            loaded = JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(json);
+                        }
+                    }
+                    catch
+                    {
+                        loaded = null;
+                    }
+                }
+
+                // If primary file failed or was empty, attempt recovery from backup
+                if ((loaded == null || loaded.Count == 0) && File.Exists(bakPath))
+                {
+                    try
+                    {
+                        string bakJson = File.ReadAllText(bakPath, Encoding.UTF8);
+                        if (!string.IsNullOrWhiteSpace(bakJson))
+                        {
+                            var bakLoaded = JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(bakJson);
+                            if (bakLoaded != null && bakLoaded.Count > 0)
+                            {
+                                loaded = bakLoaded;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
                 if (loaded != null)
                 {
                     _data = loaded;
+                    _isLoaded = true;
+                }
+                else if (!File.Exists(path))
+                {
+                    // Brand new campaign: initialize clean state
+                    _data = new Dictionary<string, HeroHistoryData>();
+                    _isLoaded = true;
+                }
+                else
+                {
+                    // Existing file could not be parsed and no backup available.
+                    // Keep _isLoaded = false to NEVER overwrite existing data with empty data.
+                }
+
+                if (_isLoaded)
+                {
+                    SyncFromGame();
                 }
             }
-            else
-            {
-                _data = new Dictionary<string, HeroHistoryData>();
-            }
-
-            _isLoaded = true;
-            SyncFromGame();
-            CleanOrphanedFiles();
+            catch { }
         }
-        catch { }
     }
 
     public static void Save()
     {
-        try
+        lock (_fileLock)
         {
-            if (!_isLoaded) return;
-            string path = GetDataFilePath();
-            string json = JsonConvert.SerializeObject(_data, Formatting.Indented);
-            File.WriteAllText(path, json);
+            try
+            {
+                if (!_isLoaded || _data == null) return;
+
+                string path = GetDataFilePath();
+                string bakPath = path + ".bak";
+                string tempPath = path + ".tmp";
+
+                // Safety guard: never overwrite populated file with empty dictionary
+                if (_data.Count == 0 && File.Exists(path))
+                {
+                    var fi = new FileInfo(path);
+                    if (fi.Length > 50) return;
+                }
+
+                string json = JsonConvert.SerializeObject(_data, Formatting.Indented);
+                File.WriteAllText(tempPath, json, Encoding.UTF8);
+
+                // Atomic replacement with persistent backup
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        File.Copy(path, bakPath, true);
+                    }
+                    catch { }
+
+                    File.Copy(tempPath, path, true);
+                    try
+                    {
+                        File.Delete(tempPath);
+                    }
+                    catch { }
+                }
+                else
+                {
+                    File.Move(tempPath, path);
+                }
+            }
+            catch { }
         }
-        catch { }
     }
 
     public static HeroHistoryData GetOrCreateHero(Hero hero)
@@ -210,12 +292,8 @@ public static class PersistentHistoryTracker
     public static HeroHistoryData? GetHeroHistory(Hero hero)
     {
         if (hero == null) return null;
-        if (!_isLoaded) Load();
-        if (_data.TryGetValue(hero.StringId, out HeroHistoryData data))
-        {
-            return data;
-        }
-        return null;
+        _data.TryGetValue(hero.StringId, out HeroHistoryData data);
+        return data;
     }
 
     public static void SyncFromGame()
@@ -301,19 +379,22 @@ public static class PersistentHistoryTracker
                                 RecordEncounter(actor, target, log.GameTime, type, affair);
                             }
                         }
-                        else if (typeName == "BirthEvent")
+                        else if (typeName == "ThreesomeEvent")
                         {
                             Hero? actor = log.GetType().GetProperty("Actor")?.GetValue(log) as Hero;
                             Hero? target = log.GetType().GetProperty("Target")?.GetValue(log) as Hero;
-                            Hero? offspring = log.GetType().GetProperty("Offspring")?.GetValue(log) as Hero;
-                            if (actor != null && target != null && offspring != null)
+                            Hero? third = log.GetType().GetProperty("Third")?.GetValue(log) as Hero;
+
+                            var trio = new[] { actor, target, third }.Where(h => h != null).ToList();
+                            for (int i = 0; i < trio.Count; i++)
                             {
-                                Hero woman = actor.IsFemale ? actor : target;
-                                Hero man = actor.IsFemale ? target : actor;
-                                RecordChild(woman, man, offspring);
+                                for (int j = i + 1; j < trio.Count; j++)
+                                {
+                                    RecordEncounter(trio[i]!, trio[j]!, log.GameTime, "Втроём", true);
+                                }
                             }
                         }
-                        else if (typeName == "ConfrontEvent")
+                        else if (typeName == "AffairDiscoveredLogEntry")
                         {
                             Hero? actor = log.GetType().GetProperty("Actor")?.GetValue(log) as Hero;
                             Hero? target = log.GetType().GetProperty("Target")?.GetValue(log) as Hero;
@@ -324,47 +405,6 @@ public static class PersistentHistoryTracker
                         }
                     }
                 }
-            }
-        }
-        catch { }
-    }
-
-    public static void CleanOrphanedFiles()
-    {
-        try
-        {
-            string storageDir = GetStorageDirectory();
-            if (!Directory.Exists(storageDir)) return;
-
-            string myDocs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string savesDir = Path.Combine(myDocs, "Mount and Blade II Bannerlord", "Game Saves");
-
-            bool hasSavesDir = Directory.Exists(savesDir);
-            var saveFiles = hasSavesDir ? Directory.GetFiles(savesDir, "*.sav", SearchOption.AllDirectories) : new string[0];
-
-            if (hasSavesDir && saveFiles.Length == 0)
-            {
-                var historyFiles = Directory.GetFiles(storageDir, "history_*.json");
-                foreach (var hf in historyFiles)
-                {
-                    try { File.Delete(hf); } catch { }
-                }
-                return;
-            }
-
-            var allHistories = Directory.GetFiles(storageDir, "history_*.json");
-            DateTime cutoff = DateTime.Now.AddDays(-60);
-            foreach (var hf in allHistories)
-            {
-                try
-                {
-                    var fi = new FileInfo(hf);
-                    if (fi.LastWriteTime < cutoff)
-                    {
-                        File.Delete(hf);
-                    }
-                }
-                catch { }
             }
         }
         catch { }
