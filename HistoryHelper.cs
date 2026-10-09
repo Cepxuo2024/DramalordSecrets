@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,15 +42,19 @@ public class ChildDisplayInfo
 
 public static class HistoryHelper
 {
+    public const string HeaderSeparator = "--------------------------------------------------";
+    public const string SummaryHeaderPrefix = "СВОДКА СВЯЗЕЙ (ЧИТ";
+    public const string JournalHeader = "ЖУРНАЛ ПОСЛЕДНИХ ВСТРЕЧ:";
+
     public static string FormatAge(int age)
     {
-        if (age < 1) return "РґРѕ 1 РіРѕРґР°";
+        if (age < 1) return "до 1 года";
         int lastTwo = age % 100;
         int last = age % 10;
-        if (lastTwo >= 11 && lastTwo <= 19) return $"{age} Р»РµС‚";
-        if (last == 1) return $"{age} РіРѕРґ";
-        if (last >= 2 && last <= 4) return $"{age} РіРѕРґР°";
-        return $"{age} Р»РµС‚";
+        if (lastTwo >= 11 && lastTwo <= 19) return $"{age} лет";
+        if (last == 1) return $"{age} год";
+        if (last >= 2 && last <= 4) return $"{age} года";
+        return $"{age} лет";
     }
 
     private static PartnerDisplayInfo GetOrCreate(Dictionary<Hero, PartnerDisplayInfo> dict, Hero hero)
@@ -245,16 +249,16 @@ public static class HistoryHelper
         var sb = new StringBuilder();
 
         // =====================================================================
-        // РЎР•РљР¦РРЇ 1: РЎР’РћР”РљРђ РџРћ РџРђР РўРќРЃР РђРњ (Р“Р РЈРџРџРР РћР’РљРђ)
+        // СЕКЦИЯ 1: СВОДКА ПО ПАРТНЁРАМ (ГРУППИРОВКА)
         // =====================================================================
         if (settings == null || settings.ShowGroupedSummary)
         {
             sb.Append("\n--------------------------------------------------");
-            sb.Append($"\nРЎР’РћР”РљРђ РЎР’РЇР—Р•Р™ (Р§РРў: РїР°СЂС‚РЅС‘СЂРѕРІ Р·Р° Р¶РёР·РЅСЊ: {partners.Count})");
+            sb.Append($"\nСВОДКА СВЯЗЕЙ (ЧИТ: партнёров за жизнь: {partners.Count})");
 
             if (partners.Count == 0)
             {
-                sb.Append("\n- РџР°СЂС‚РЅС‘СЂРѕРІ РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ.");
+                sb.Append("\n- Партнёров не зафиксировано.");
             }
             else
             {
@@ -272,57 +276,57 @@ public static class HistoryHelper
                     Hero partner = info.Partner;
                     string partnerName = partner.Name.ToString();
 
-                    // РљРѕСЂРѕС‚РєРѕРµ РѕР±РѕР·РЅР°С‡РµРЅРёРµ С‚РёРїР° СЃРІСЏР·Рё РїР°СЂС‹: РњР–, Р–Р–, РњРњ
-                    string orientationTag = (!subject.IsFemale && !partner.IsFemale) ? "РњРњ"
-                                          : (subject.IsFemale && partner.IsFemale) ? "Р–Р–"
-                                          : "РњР–";
+                    // Короткое обозначение типа связи пары: МЖ, ЖЖ, ММ
+                    string orientationTag = (!subject.IsFemale && !partner.IsFemale) ? "ММ"
+                                          : (subject.IsFemale && partner.IsFemale) ? "ЖЖ"
+                                          : "МЖ";
 
                     var statuses = new List<string>();
-                    if (info.IsSpouse) statuses.Add(partner.IsFemale ? "РЎСѓРїСЂСѓРіР°" : "РЎСѓРїСЂСѓРі");
-                    if (info.IsLover) statuses.Add(partner.IsFemale ? "Р›СЋР±РѕРІРЅРёС†Р°" : "Р›СЋР±РѕРІРЅРёРє");
+                    if (info.IsSpouse) statuses.Add(partner.IsFemale ? "Супруга" : "Супруг");
+                    if (info.IsLover) statuses.Add(partner.IsFemale ? "Любовница" : "Любовник");
                     if (info.IsCurrentPregnancyPartner)
                     {
-                        statuses.Add(subject.IsFemale ? "РћС‚РµС† СЂРµР±С‘РЅРєР°" : "Р‘РµСЂРµРјРµРЅРЅР° РѕС‚ РЅРµРіРѕ");
+                        statuses.Add(subject.IsFemale ? "Отец ребёнка" : "Беременна от него");
                     }
-                    if (info.HadAffair) statuses.Add("РёР·РјРµРЅР°");
-                    if (statuses.Count == 0) statuses.Add("РёРЅС‚РёРј");
+                    if (info.HadAffair) statuses.Add("измена");
+                    if (statuses.Count == 0) statuses.Add("интим");
 
                     string statusStr = string.Join(", ", statuses);
 
-                    // 1. РРјСЏ, СЃС‚Р°С‚СѓСЃ Рё РєРѕСЂРѕС‚РєРёР№ С‚РёРї СЃРІСЏР·Рё
+                    // 1. Имя, статус и короткий тип связи
                     sb.Append($"\n\n{counter}. {partnerName} ({statusStr}) {orientationTag}");
 
-                    // 2. РљРѕР»РёС‡РµСЃС‚РІРѕ РІСЃС‚СЂРµС‡ (РѕС‚РґРµР»СЊРЅРѕР№ СЃС‚СЂРѕРєРѕР№)
+                    // 2. Количество встреч (отдельной строкой)
                     if (info.IntimateCount > 0)
                     {
-                        sb.Append($"\n   Р’СЃС‚СЂРµС‡: {info.IntimateCount}");
+                        sb.Append($"\n   Встреч: {info.IntimateCount}");
                     }
 
-                    // 3. РџРѕСЃР»РµРґРЅСЏСЏ РґР°С‚Р° (РѕС‚РґРµР»СЊРЅРѕР№ СЃС‚СЂРѕРєРѕР№)
+                    // 3. Последняя дата (отдельной строкой)
                     if (!string.IsNullOrEmpty(info.LastDate))
                     {
-                        sb.Append($"\n   РџРѕСЃР»РµРґРЅСЏСЏ: {info.LastDate}");
+                        sb.Append($"\n   Последняя: {info.LastDate}");
                     }
 
-                    // 4. Р”РµС‚Рё (РїРѕ РѕРґРЅРѕРјСѓ РЅР° СЃС‚СЂРѕРєСѓ СЃ РІРѕР·СЂР°СЃС‚РѕРј, Р±РµР· РёР·Р±С‹С‚РѕС‡РЅС‹С… СЃРєРѕР±РѕРє)
+                    // 4. Дети (по одному на строку с возрастом, без избыточных скобок)
                     if (info.Children.Count > 0)
                     {
-                        sb.Append($"\n   Р”РµС‚Рё ({info.Children.Count}):");
+                        sb.Append($"\n   Дети ({info.Children.Count}):");
                         foreach (var cInfo in info.Children)
                         {
                             string cName = cInfo.Child.Name.ToString();
                             string ageStr = FormatAge((int)cInfo.Child.Age);
 
-                            if (cInfo.IsOrphan) cName += $" вЂ” {ageStr}, РІ РїСЂРёСЋС‚Рµ";
-                            else if (cInfo.IsDead) cName += $" вЂ” {ageStr}, РїРѕРіРёР±(Р»Р°)";
-                            else cName += $" вЂ” {ageStr}";
+                            if (cInfo.IsOrphan) cName += $" — {ageStr}, в приюте";
+                            else if (cInfo.IsDead) cName += $" — {ageStr}, погиб(ла)";
+                            else cName += $" — {ageStr}";
 
                             sb.Append($"\n     - {cName}");
                         }
                     }
                     else
                     {
-                        sb.Append("\n   Р”РµС‚Рё: РЅРµС‚");
+                        sb.Append("\n   Дети: нет");
                     }
 
                     counter++;
@@ -332,7 +336,7 @@ public static class HistoryHelper
         }
 
         // =====================================================================
-        // РЎР•РљР¦РРЇ 2: РҐР РћРќРћР›РћР“РР§Р•РЎРљРР™ Р–РЈР РќРђР› РџРћ Р”РђРўРђРњ (РЎРљР Р«Рў РџРћ РЈРњРћР›Р§РђРќРР®)
+        // СЕКЦИЯ 2: ХРОНОЛОГИЧЕСКИЙ ЖУРНАЛ ПО ДАТАМ (СКРЫТ ПО УМОЛЧАНИЮ)
         // =====================================================================
         if (settings != null && settings.ShowChronologicalLog)
         {
@@ -344,7 +348,7 @@ public static class HistoryHelper
                 var sortedEncounters = encounters.OrderByDescending(e => e.Days).ToList();
                 int maxToShow = Math.Min(settings.MaxLogEntries, sortedEncounters.Count);
 
-                sb.Append("\n\nР–РЈР РќРђР› РџРћРЎР›Р•Р”РќРРҐ Р’РЎРўР Р•Р§:");
+                sb.Append("\n\nЖУРНАЛ ПОСЛЕДНИХ ВСТРЕЧ:");
                 for (int i = 0; i < maxToShow; i++)
                 {
                     var enc = sortedEncounters[i];
@@ -355,22 +359,22 @@ public static class HistoryHelper
                     string dateStr = PersistentHistoryTracker.FormatDate(enc.Days);
                     string tag = enc.Orientation switch
                     {
-                        RelationshipOrientation.Gay => "РњРњ",
-                        RelationshipOrientation.Lesbian => "Р–Р–",
-                        _ => "РњР–"
+                        RelationshipOrientation.Gay => "ММ",
+                        RelationshipOrientation.Lesbian => "ЖЖ",
+                        _ => "МЖ"
                     };
 
-                    string detail = enc.WasAffair ? "РёР·РјРµРЅР°" : enc.EncounterType.ToLower();
+                    string detail = enc.WasAffair ? "измена" : enc.EncounterType.ToLower();
                     sb.Append($"\n- {dateStr}: {pName} {tag} ({detail})");
                 }
                 sb.Append("\n--------------------------------------------------");
             }
         }
 
-        // Р—Р°С‰РёС‚Р°: СѓРґР°Р»СЏРµРј Р»СЋР±С‹Рµ РЅРµРїСЂРµРґРЅР°РјРµСЂРµРЅРЅС‹Рµ СЃРёРјРІРѕР»С‹ '<' Рё '>', С‡С‚РѕР±С‹ RichTextParser
-        // РґРІРёР¶РєР° Gauntlet РЅРёРєРѕРіРґР° РЅРµ РїРµСЂРµРєР»СЋС‡Р°Р»СЃСЏ РІ СЂРµР¶РёРј СЂР°Р·РјРµС‚РєРё РЅРµСЂР°СЃРїРѕР·РЅР°РЅРЅС‹С… С‚РµРіРѕРІ,
-        // РєРѕС‚РѕСЂС‹Р№ РїРѕРІСЂРµР¶РґР°РµС‚ С‚РѕРєРµРЅРёР·Р°С†РёСЋ Рё РїСЂРµРІСЂР°С‰Р°РµС‚ РїРѕСЃР»РµРґСѓСЋС‰РёРµ '\n' РІ СЃРёРјРІРѕР» '[?]'.
-        // РўР°РєР¶Рµ РѕС‡РёС‰Р°РµРј РѕС‚ '\r' РґР»СЏ С‡РёСЃС‚РѕС‚С‹ РїРµСЂРµРЅРѕСЃРѕРІ.
+        // Защита: удаляем любые непреднамеренные символы '<' и '>', чтобы RichTextParser
+        // движка Gauntlet никогда не переключался в режим разметки нераспознанных тегов,
+        // который повреждает токенизацию и превращает последующие '\n' в символ '[?]'.
+        // Также очищаем от '\r' для чистоты переносов.
         return sb.ToString().Replace("<", "").Replace(">", "").Replace("\r", "").TrimEnd();
     }
 }
