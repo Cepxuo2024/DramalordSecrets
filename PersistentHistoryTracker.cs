@@ -50,6 +50,7 @@ public static class PersistentHistoryTracker
     private static bool _recoveredFromBackup = false;
     private static string? _activeCampaignId;
     private static string? _activeDirectory;
+    private static string? _lastFailureSignature;
     private static readonly object _fileLock = new object();
 
     public static string FormatDate(double days)
@@ -109,7 +110,10 @@ public static class PersistentHistoryTracker
             SyncFromGame();
             Save();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            NoteFailure("Загрузка истории", ex);
+        }
     }
 
     public static void LoadCampaign(string campaignId, string storageDirectory)
@@ -137,12 +141,13 @@ public static class PersistentHistoryTracker
                 _activeDirectory = storageDirectory;
                 _isLoaded = true;
             }
-            catch
+            catch (Exception ex)
             {
                 _isLoaded = false;
                 _activeCampaignId = null;
                 _activeDirectory = null;
                 _data = new Dictionary<string, HeroHistoryData>();
+                NoteFailure("Открытие истории кампании", ex);
             }
         }
     }
@@ -150,7 +155,17 @@ public static class PersistentHistoryTracker
     public static Dictionary<string, HeroHistoryData>? ReadHistory(string path, out bool recoveredFromBackup)
     {
         recoveredFromBackup = false;
-        if (!File.Exists(path)) return new Dictionary<string, HeroHistoryData>();
+        if (!File.Exists(path))
+        {
+            string missingMainBackup = path + ".bak";
+            if (!File.Exists(missingMainBackup)) return new Dictionary<string, HeroHistoryData>();
+
+            Dictionary<string, HeroHistoryData>? restored = TryParseHistory(missingMainBackup);
+            if (restored == null) return null;
+
+            recoveredFromBackup = true;
+            return restored;
+        }
 
         Dictionary<string, HeroHistoryData>? parsed = TryParseHistory(path);
         if (parsed != null) return parsed;
@@ -202,7 +217,34 @@ public static class PersistentHistoryTracker
                 WriteHistory(path, _data, _recoveredFromBackup);
                 _recoveredFromBackup = false;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                NoteFailure("Запись истории", ex);
+            }
+        }
+    }
+
+    public static void NoteFailure(string operation, Exception exception)
+    {
+        if (exception == null || string.IsNullOrEmpty(operation)) return;
+        string signature = operation + "|" + exception.GetType().FullName + "|" + exception.Message;
+        if (signature == _lastFailureSignature) return;
+        _lastFailureSignature = signature;
+
+        try
+        {
+            string? directory = _activeDirectory;
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            {
+                directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Mount and Blade II Bannerlord", "DramalordSecrets");
+            }
+            Directory.CreateDirectory(directory);
+            string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + operation + ": " + exception.GetType().Name + ": " + exception.Message + Environment.NewLine;
+            File.AppendAllText(Path.Combine(directory, "history-errors.log"), line, Encoding.UTF8);
+        }
+        catch
+        {
+            // Диагностику нельзя превращать в новый сбой игры.
         }
     }
 
@@ -494,9 +536,9 @@ public static class DramalordLogCapture
         {
             PersistentHistoryTracker.CaptureLog(actionLog, true);
         }
-        catch
+        catch (Exception ex)
         {
-            // Запись истории не должна прерывать игровое событие.
+            PersistentHistoryTracker.NoteFailure("Обработка события Dramalord", ex);
         }
     }
 }
