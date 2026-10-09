@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="English" />
+  </tags>
+  <strings>
+    <string id="dls_ask_father" text="I see your condition... May I ask: who is the father of your unborn child?" />
+    <string id="dls_ans_player" text="How can you ask such a thing, {PLAYER.NAME}? This child is yours! Have you already forgotten our nights of passion?" />
+    <string id="dls_ans_confess_wife" text="(She lowers her eyes tearfully) Forgive me, {PLAYER.NAME}... I have sinned. The true father is {FATHER_NAME}. Please have mercy and keep this secret!" />
+    <string id="dls_ans_confess_married" text="(She looks around anxiously and whispers) Not a word to anyone, {PLAYER.NAME}! My husband thinks the child is his, but the true father is {FATHER_NAME}... I trust in your discretion." />
+    <string id="dls_ans_confess_unmarried" text="(She glances around nervously and lowers her voice) Please, not a word to anyone, {PLAYER.NAME}... This child is from {FATHER_NAME}. There was a secret bond between us... I hope I can count on your honor and silence." />
+    <string id="dls_ans_reject" text="What insolence! My personal life is not a matter for idle gossip. Do not pry into what does not concern you, {PLAYER.NAME}!" />
+    <string id="dls_ask_status" text="How is your pregnancy progressing? Is everything well?" />
+    <string id="dls_ans_status_player_wife" text="Thank you for your care, my love. Both the child and I are doing well. I can hardly wait for our little one to arrive!" />
+    <string id="dls_ans_status_husband" text="Thank you for your concern, {PLAYER.NAME}. Both the child and I are doing well. {FATHER_NAME} has been very attentive and caring." />
+    <string id="dls_ans_status_secret_known" text="Thank you for your concern, {PLAYER.NAME}. Both the child and I are doing well. And thank you for keeping mine and {FATHER_NAME}'s secret." />
+    <string id="dls_notif_player" text="Secret revealed: {MOTHER_NAME} is carrying your child!" />
+    <string id="dls_notif_other" text="Secret revealed: the father of {MOTHER_NAME}'s child is {FATHER_NAME}!" />
+    <string id="dls_notif_reject" text="{MOTHER_NAME} deemed your question tactless (-3 relation)." />
+  </strings>
+</base>

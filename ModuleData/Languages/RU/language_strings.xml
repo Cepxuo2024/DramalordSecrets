@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="Русский" />
+  </tags>
+  <strings>
+    <string id="dls_ask_father" text="Я вижу твоё положение... Могу я спросить: кто отец будущего ребёнка?" />
+    <string id="dls_ans_player" text="Как ты можешь спрашивать об этом, {PLAYER.NAME}? Это дитя от тебя! Неужели ты забыл наши ночи страсти?" />
+    <string id="dls_ans_confess_wife" text="(Она со слезами опускает взгляд) Прости меня, {PLAYER.NAME}... Я согрешила. Настоящий отец ребёнка — {FATHER_NAME}. Молю, пощади меня и сохрани это в тайне!" />
+    <string id="dls_ans_confess_married" text="(Она тревожно оглядывается и шепчет) Никому ни слова, {PLAYER.NAME}! Мой муж думает, что ребёнок от него, но настоящий отец — {FATHER_NAME}... Надеюсь на твоё благородство и молчание." />
+    <string id="dls_ans_confess_unmarried" text="(Она смущённо оглядывается и понижает голос) Прошу, никому ни слова, {PLAYER.NAME}... Это дитя от {FATHER_NAME}. Между нами была тайная связь... Надеюсь, я могу рассчитывать на твоё благородство и молчание." />
+    <string id="dls_ans_reject" text="Какая неслыханная дерзость! Моя личная жизнь — не предмет для праздных сплетен. Не смейте совать нос не в своё дело, {PLAYER.NAME}!" />
+    <string id="dls_ask_status" text="Как протекает твоя беременность? Всё ли благополучно?" />
+    <string id="dls_ans_status_player_wife" text="Благодарю за заботу, любимый. Мы с будущим ребёнком чувствуем себя хорошо. С нетерпением жду, когда наше дитя появится на свет!" />
+    <string id="dls_ans_status_husband" text="Благодарю за заботу, {PLAYER.NAME}. Мы с будущим ребёнком чувствуем себя хорошо. {FATHER_NAME} окружил меня вниманием и заботой." />
+    <string id="dls_ans_status_secret_known" text="Благодарю за заботу, {PLAYER.NAME}. Мы с будущим ребёнком чувствуем себя хорошо. И спасибо, что хранишь нашу с {FATHER_NAME} тайну." />
+    <string id="dls_notif_player" text="Тайна раскрыта: {MOTHER_NAME} носит вашего ребёнка!" />
+    <string id="dls_notif_other" text="Тайна раскрыта: отец будущего ребёнка {MOTHER_NAME} — {FATHER_NAME}!" />
+    <string id="dls_notif_reject" text="{MOTHER_NAME} сочла ваш вопрос бестактным (-3 к отношениям)." />
+  </strings>
+</base>

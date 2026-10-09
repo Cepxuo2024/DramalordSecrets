@@ -1,0 +1,31 @@
+<Module>
+  <Name value="Dramalord Secrets" />
+  <Id value="DramalordSecrets" />
+  <Version value="v1.0.4" />
+  <DefaultModule value="false" />
+  <SingleplayerModule value="true" />
+  <MultiplayerModule value="false" />
+  <Official value="false" />
+  <DependedModules>
+    <DependedModule Id="Bannerlord.Harmony" />
+    <DependedModule Id="Bannerlord.MBOptionScreen" />
+    <DependedModule Id="Native" />
+    <DependedModule Id="SandBoxCore" />
+    <DependedModule Id="Sandbox" />
+    <DependedModule Id="CustomBattle" />
+    <DependedModule Id="StoryMode" />
+    <DependedModule Id="Dramalord" />
+  </DependedModules>
+  <SubModules>
+    <SubModule>
+      <Name value="DramalordSecrets" />
+      <DLLName value="DramalordSecrets.dll" />
+      <SubModuleClassType value="DramalordSecrets.SubModule" />
+      <Tags>
+        <Tag key="DedicatedServerType" value="none" />
+        <Tag key="IsNoRenderModeElement" value="false" />
+      </Tags>
+    </SubModule>
+  </SubModules>
+  <Xmls />
+</Module>
