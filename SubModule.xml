@@ -1,6 +1,6 @@
 <Module>
-  <Name value="Dramalord Secrets" />
-  <Id value="DramalordSecrets" />
+  <Name value="Dramalord Secrets Dev" />
+  <Id value="DramalordSecretsDev" />
   <Version value="v1.0.4" />
   <DefaultModule value="false" />
   <SingleplayerModule value="true" />
@@ -18,8 +18,8 @@
   </DependedModules>
   <SubModules>
     <SubModule>
-      <Name value="DramalordSecrets" />
-      <DLLName value="DramalordSecrets.dll" />
+      <Name value="DramalordSecretsDev" />
+      <DLLName value="DramalordSecretsDev.dll" />
       <SubModuleClassType value="DramalordSecrets.SubModule" />
       <Tags>
         <Tag key="DedicatedServerType" value="none" />
