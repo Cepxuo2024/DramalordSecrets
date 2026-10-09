@@ -43,8 +43,13 @@ public class HeroHistoryData
 
 public static class PersistentHistoryTracker
 {
+    private const double SameEventTimeTolerance = 0.000001;
+
     private static Dictionary<string, HeroHistoryData> _data = new Dictionary<string, HeroHistoryData>();
     private static bool _isLoaded = false;
+    private static bool _recoveredFromBackup = false;
+    private static string? _activeCampaignId;
+    private static string? _activeDirectory;
     private static readonly object _fileLock = new object();
 
     public static string FormatDate(double days)
@@ -80,84 +85,101 @@ public static class PersistentHistoryTracker
         return folder;
     }
 
-    private static string GetDataFilePath()
+    private static string CurrentCampaignId()
     {
-        string campaignId = Campaign.Current != null && !string.IsNullOrEmpty(Campaign.Current.UniqueGameId)
-            ? Campaign.Current.UniqueGameId
-            : "default";
+        if (Campaign.Current != null && !string.IsNullOrEmpty(Campaign.Current.UniqueGameId))
+        {
+            return Campaign.Current.UniqueGameId;
+        }
+        return "default";
+    }
 
-        return Path.Combine(GetStorageDirectory(), $"history_{campaignId}.json");
+    private static string HistoryPath(string directory, string campaignId)
+    {
+        return Path.Combine(directory, $"history_{campaignId}.json");
     }
 
     public static void Load()
     {
+        LoadCampaign(CurrentCampaignId(), GetStorageDirectory());
+        if (!_isLoaded) return;
+
+        try
+        {
+            SyncFromGame();
+            Save();
+        }
+        catch { }
+    }
+
+    public static void LoadCampaign(string campaignId, string storageDirectory)
+    {
         lock (_fileLock)
         {
+            _isLoaded = false;
+            _recoveredFromBackup = false;
+            _activeCampaignId = null;
+            _activeDirectory = null;
+            _data = new Dictionary<string, HeroHistoryData>();
+
+            if (string.IsNullOrEmpty(campaignId) || string.IsNullOrEmpty(storageDirectory)) return;
+
             try
             {
-                string path = GetDataFilePath();
-                string bakPath = path + ".bak";
+                Directory.CreateDirectory(storageDirectory);
+                string path = HistoryPath(storageDirectory, campaignId);
+                Dictionary<string, HeroHistoryData>? loaded = ReadHistory(path, out bool recoveredFromBackup);
+                if (loaded == null) return;
 
-                Dictionary<string, HeroHistoryData>? loaded = null;
-
-                if (File.Exists(path))
-                {
-                    try
-                    {
-                        string json = File.ReadAllText(path, Encoding.UTF8);
-                        if (!string.IsNullOrWhiteSpace(json))
-                        {
-                            loaded = JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(json);
-                        }
-                    }
-                    catch
-                    {
-                        loaded = null;
-                    }
-                }
-
-                // If primary file failed or was empty, attempt recovery from backup
-                if ((loaded == null || loaded.Count == 0) && File.Exists(bakPath))
-                {
-                    try
-                    {
-                        string bakJson = File.ReadAllText(bakPath, Encoding.UTF8);
-                        if (!string.IsNullOrWhiteSpace(bakJson))
-                        {
-                            var bakLoaded = JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(bakJson);
-                            if (bakLoaded != null && bakLoaded.Count > 0)
-                            {
-                                loaded = bakLoaded;
-                            }
-                        }
-                    }
-                    catch { }
-                }
-
-                if (loaded != null)
-                {
-                    _data = loaded;
-                    _isLoaded = true;
-                }
-                else if (!File.Exists(path))
-                {
-                    // Brand new campaign: initialize clean state
-                    _data = new Dictionary<string, HeroHistoryData>();
-                    _isLoaded = true;
-                }
-                else
-                {
-                    // Existing file could not be parsed and no backup available.
-                    // Keep _isLoaded = false to NEVER overwrite existing data with empty data.
-                }
-
-                if (_isLoaded)
-                {
-                    SyncFromGame();
-                    Save();
-                }
+                _data = loaded;
+                _recoveredFromBackup = recoveredFromBackup;
+                _activeCampaignId = campaignId;
+                _activeDirectory = storageDirectory;
+                _isLoaded = true;
             }
-            catch { }
+            catch
+            {
+                _isLoaded = false;
+                _activeCampaignId = null;
+                _activeDirectory = null;
+                _data = new Dictionary<string, HeroHistoryData>();
+            }
+        }
+    }
+
+    public static Dictionary<string, HeroHistoryData>? ReadHistory(string path, out bool recoveredFromBackup)
+    {
+        recoveredFromBackup = false;
+        if (!File.Exists(path)) return new Dictionary<string, HeroHistoryData>();
+
+        Dictionary<string, HeroHistoryData>? parsed = TryParseHistory(path);
+        if (parsed != null) return parsed;
+
+        string backupPath = path + ".bak";
+        if (File.Exists(backupPath))
+        {
+            Dictionary<string, HeroHistoryData>? fromBackup = TryParseHistory(backupPath);
+            if (fromBackup != null)
+            {
+                recoveredFromBackup = true;
+                return fromBackup;
+            }
+        }
+
+        return null;
+    }
+
+    private static Dictionary<string, HeroHistoryData>? TryParseHistory(string path)
+    {
+        try
+        {
+            string json = File.ReadAllText(path, Encoding.UTF8);
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            return JsonConvert.DeserializeObject<Dictionary<string, HeroHistoryData>>(json);
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -167,45 +189,49 @@ public static class PersistentHistoryTracker
         {
             try
             {
-                if (!_isLoaded || _data == null) return;
+                if (!_isLoaded || _data == null || _activeCampaignId == null || _activeDirectory == null) return;
+                if (Campaign.Current != null && CurrentCampaignId() != _activeCampaignId) return;
 
-                string path = GetDataFilePath();
-                string bakPath = path + ".bak";
-                string tempPath = path + ".tmp";
-
-                // Safety guard: never overwrite populated file with empty dictionary
+                string path = HistoryPath(_activeDirectory, _activeCampaignId);
                 if (_data.Count == 0 && File.Exists(path))
                 {
-                    var fi = new FileInfo(path);
-                    if (fi.Length > 50) return;
+                    var info = new FileInfo(path);
+                    if (info.Length > 50) return;
                 }
 
-                string json = JsonConvert.SerializeObject(_data, Formatting.Indented);
-                File.WriteAllText(tempPath, json, Encoding.UTF8);
-
-                // Atomic replacement with persistent backup
-                if (File.Exists(path))
-                {
-                    try
-                    {
-                        File.Copy(path, bakPath, true);
-                    }
-                    catch { }
-
-                    File.Copy(tempPath, path, true);
-                    try
-                    {
-                        File.Delete(tempPath);
-                    }
-                    catch { }
-                }
-                else
-                {
-                    File.Move(tempPath, path);
-                }
+                WriteHistory(path, _data, _recoveredFromBackup);
+                _recoveredFromBackup = false;
             }
             catch { }
         }
+    }
+
+    public static void WriteHistory(string path, IDictionary<string, HeroHistoryData> data, bool preserveBackup)
+    {
+        if (data == null) return;
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+        string tempPath = path + ".tmp";
+        string json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+        using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+        {
+            writer.Write(json);
+            writer.Flush();
+            stream.Flush(true);
+        }
+
+        if (!File.Exists(path))
+        {
+            File.Move(tempPath, path);
+            return;
+        }
+
+        // File.Replace меняет основной файл и резервную копию одним системным вызовом.
+        // Если основной файл повреждён и данные восстановлены из .bak, хорошую копию не подменяем.
+        string backupPath = preserveBackup ? path + ".corrupt" : path + ".bak";
+        File.Replace(tempPath, path, backupPath, true);
     }
 
     public static HeroHistoryData GetOrCreateHero(Hero hero)
@@ -254,7 +280,7 @@ public static class PersistentHistoryTracker
             if (existing.EventId == 0 && incoming.EventId != 0
                 && existing.PartnerStringId == incoming.PartnerStringId
                 && existing.EncounterType == incoming.EncounterType
-                && Math.Abs(existing.Days - incoming.Days) < 0.001)
+                && Math.Abs(existing.Days - incoming.Days) < SameEventTimeTolerance)
             {
                 existing.EventId = incoming.EventId;
                 if (existing.ParticipantIds == null || existing.ParticipantIds.Count == 0)
@@ -354,7 +380,8 @@ public static class PersistentHistoryTracker
 
     public static bool CaptureLog(LogEntry log, bool save)
     {
-        if (!_isLoaded || log == null || Campaign.Current == null) return false;
+        if (!_isLoaded || log == null || Campaign.Current == null || _activeCampaignId == null) return false;
+        if (CurrentCampaignId() != _activeCampaignId) return false;
 
         bool added;
         lock (_fileLock)
