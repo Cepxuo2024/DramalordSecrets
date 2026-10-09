@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
@@ -267,9 +267,6 @@ public class DramalordSecretsCampaignBehavior : CampaignBehaviorBase
             MarkSecretDiscovered(currentHero);
             DramalordHelper.ChangeTrust(currentHero, Hero.MainHero, 5);
 
-            PersistentHistoryTracker.RecordEncounter(currentHero, Hero.MainHero, CampaignTime.Now, "Близость", false);
-            PersistentHistoryTracker.Save();
-
             var notif = new TextObject("{=dls_notif_player}Secret revealed: {MOTHER_NAME} is carrying your child!");
             notif.SetTextVariable("MOTHER_NAME", currentHero.Name.ToString());
             InformationManager.DisplayMessage(new InformationMessage(notif.ToString(), Colors.Magenta));
@@ -351,12 +348,6 @@ public class DramalordSecretsCampaignBehavior : CampaignBehaviorBase
             }
 
             DramalordHelper.ChangeTrust(currentHero, Hero.MainHero, 2);
-
-            if (father != null)
-            {
-                PersistentHistoryTracker.RecordEncounter(currentHero, father, CampaignTime.Now, "Близость", true);
-                PersistentHistoryTracker.Save();
-            }
 
             string fatherName = father != null ? father.Name.ToString() : "Неизвестного";
             var notif = new TextObject("{=dls_notif_other}Secret revealed: the father of {MOTHER_NAME}'s child is {FATHER_NAME}!");
